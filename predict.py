@@ -8,28 +8,14 @@ sys.path.append("..")
 import cv2
 import numpy as np
 import imutils
-
-def show_anns(anns):
-    if len(anns) == 0:
-        return
-    sorted_anns = sorted(anns, key=(lambda x: x['area']), reverse=True)
-    
-    ref = anns[0]['segmentation']
-
-    canvas = np.zeros((ref.shape[0], ref.shape[1], 3))
-
-    for ann in sorted_anns:
-        m = ann['segmentation']
-        color_mask = np.random.random((1, 3))
-        canvas[m] = np.uint8(color_mask*255)
-    return canvas
+import json
 
 class Predictor(BasePredictor):
     def setup(self):
         """Load the model into memory to make running multiple predictions efficient"""
         sam_checkpoint = "sam_vit_h_4b8939.pth"
         device = "cuda"
-        model_type = "default"
+        model_type = "vit_b"
         self.sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
         self.sam.to(device=device)
     
@@ -60,8 +46,10 @@ class Predictor(BasePredictor):
         image = imutils.resize(image, width=resize_width)
 
         masks = mask_generator.generate(image)
-        annotations = show_anns(masks)
 
-        cv2.imwrite("output_mask.png", annotations)
+        json_str = json.dumps(json)
 
-        return Path("output_mask.png")
+        with open("output.txt", "w") as f:
+            f.write(json_str)
+
+        return Path("output.txt")
