@@ -9,11 +9,18 @@ import cv2
 import numpy as np
 import imutils
 import json
+from json import JSONEncoder
+
+class NumpyArrayEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return JSONEncoder.default(self, obj)
 
 class Predictor(BasePredictor):
     def setup(self):
         """Load the model into memory to make running multiple predictions efficient"""
-        sam_checkpoint = "sam_vit_h_4b8939.pth"
+        sam_checkpoint = "sam_vit_b_01ec64.pth"
         device = "cuda"
         model_type = "vit_b"
         self.sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
@@ -22,7 +29,6 @@ class Predictor(BasePredictor):
     def predict(
         self,
         image: Path = Input(description="Input image"),
-        resize_width: int = Input(default=1024, description="The width to resize the image to before running inference."),
         points_per_side: int = Input(default = 32, description= "The number of points to be sampled along one side of the image. The total number of points is points_per_side**2. If None, point_grids must provide explicit point sampling."),
         pred_iou_thresh: float = Input(default=0.88,description="A filtering threshold in [0,1], using the model's predicted mask quality."),
         stability_score_thresh: float = Input(default=0.95, description="A filtering threshold in [0,1], using the stability of the mask under changes to the cutoff used to binarize the model's mask predictions."),
@@ -38,16 +44,16 @@ class Predictor(BasePredictor):
         args = locals()
         del args["self"]
         del args["image"]
-        del args["resize_width"]
 
         mask_generator = SamAutomaticMaskGenerator(self.sam, **args)
 
         image = cv2.imread(str(image))
-        image = imutils.resize(image, width=resize_width)
 
         masks = mask_generator.generate(image)
+        for mask in masks:
+            del mask["segmentation"]
 
-        json_str = json.dumps(json)
+        json_str = json.dumps(masks, cls=NumpyArrayEncoder)
 
         with open("output.txt", "w") as f:
             f.write(json_str)
